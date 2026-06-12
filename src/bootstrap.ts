@@ -3,6 +3,7 @@ import { StartupLoop } from '@service/loop.service'
 import { readConfig } from '@util/appConfig.util'
 import { logger } from '@util/logger.util'
 import Fastify from 'fastify'
+import fastifyRawBody from 'fastify-raw-body'
 
 const loggerConfig = (funcName: string) => logger.child({ module: `bootstrap/${funcName}` })
 
@@ -20,7 +21,9 @@ export const bootstrap = async () => {
 
     const resolvedOrigins = config.worker.cors.length > 0 ? config.worker.cors : '*'
 
+    app.register(fastifyRawBody, { field: 'rawBody', encoding: 'utf-8' })
     app.register(cors, { origin: resolvedOrigins })
+
     app.listen({ port: config.worker.port, host: config.worker.host })
 
     // 启动任务循环

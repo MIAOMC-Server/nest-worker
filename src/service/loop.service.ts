@@ -21,6 +21,7 @@ export const StartupLoop = async () => {
         try {
             // Dosomething when startup, for example every 1 min to send a request to queen for heartbeat or check for updates
             // 循环每 30 秒 执行一次，可以是发送 心跳信息给 queen
+            console.log(systemInfo)
             await new Promise((resolve) => setTimeout(resolve, 30000))
             retryCount = 0
         } catch (error) {

@@ -26,17 +26,25 @@ export const authenticationHook = async (
         return reply.status(401).send({ error: 'Missing authentication headers' })
     }
 
+    const signature = signatureHeaders['x-miaomc-nest-worker-signature']
+    const expireAt = parseInt(signatureHeaders['x-miaomc-nest-worker-expired-at'])
+    const currentTime = Date.now()
+
+    if (isNaN(expireAt) || expireAt < currentTime) {
+        log.info(`${req.ip}/Signature expired`)
+        return reply.status(401).send({ error: 'Signature expired' })
+    }
+
+    const rawBody = req.rawBody ? (Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf-8') : req.rawBody) : ''
+
     const verifyPayload = {
         workerId: signatureHeaders['x-miaomc-nest-worker-id'],
         nonce: signatureHeaders['x-miaomc-nest-worker-nonce'],
         expiredAt: parseInt(signatureHeaders['x-miaomc-nest-worker-expired-at']),
-        rawBody: (req.raw as any).rawBody || ''
+        rawBody: rawBody
     } as SignaturePayloadShape
 
-    const verifyResult = signatureService.verifySignature(
-        signatureHeaders['x-miaomc-nest-worker-signature'],
-        verifyPayload
-    )
+    const verifyResult = signatureService.verifySignature(signature, verifyPayload)
 
     if (!verifyResult) {
         log.info(`${req.ip}/Invalid signature`)

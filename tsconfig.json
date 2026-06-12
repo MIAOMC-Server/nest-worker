@@ -1,0 +1,35 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "module": "esnext",
+        "moduleResolution": "bundler",
+
+        "rootDir": "./",
+        "outDir": "./dist",
+
+        "strict": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+
+        "noImplicitAny": true,
+        "paths": {
+            "@controller/*": ["./src/controller/*"],
+            "@service/*": ["./src/service/*"],
+            "@util/*": ["./src/util/*"],
+            "@repo/*": ["./src/repo/*"],
+            "@processor/*": ["./src/processor/*"],
+            "@plugin/*": ["./src/plugin/*"],
+            "@schema/*": ["./src/schema/*"],
+            "@generated/*": ["./generated/*"],
+            "@nest-worker-types/*": ["./src/types/*"]
+        },
+        "lib": ["esnext"],
+        "declaration": true,
+        "types": ["node", "jest"],
+
+        "forceConsistentCasingInFileNames": true,
+        "esModuleInterop": true,
+        "resolveJsonModule": true
+    },
+    "exclude": ["node_modules", "dist", "build"]
+}

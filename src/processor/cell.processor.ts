@@ -1,9 +1,7 @@
-import { dockerService } from '@service/docker.service'
-import type Docker from 'dockerode'
-
 import { CellCreateRequest } from '@schema/api/cell/request/request.schema'
+import { dockerService } from '@service/docker.service'
 import { serviceErrorHandler } from '@util/errorHandler.util'
-import { string } from 'zod'
+import type Docker from 'dockerode'
 
 export const processCellCreate = async (cellOptions: CellCreateRequest['cellOptions']) => {
     try {

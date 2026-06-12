@@ -12,7 +12,7 @@ import { z } from 'zod'
 export const appConfigSchema = z.object({
     worker: z.object({
         host: z.string().default('localhost'),
-        port: z.number().default(3000),
+        port: z.number().default(26767),
         cors: z.array(z.string()).default([]),
 
         credentials: z.object({
@@ -47,7 +47,7 @@ export const defaultConfig = (uuid: string, secret: string, socketPath: string =
     return {
         worker: {
             host: 'localhost',
-            port: 3000,
+            port: 26767,
             cors: [],
 
             credentials: {

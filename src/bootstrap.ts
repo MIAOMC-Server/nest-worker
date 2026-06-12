@@ -1,4 +1,5 @@
 import cors from '@fastify/cors'
+import { appRouter } from '@plugin/route/index.route'
 import { StartupLoop } from '@service/loop.service'
 import { readConfig } from '@util/appConfig.util'
 import { logger } from '@util/logger.util'
@@ -23,6 +24,8 @@ export const bootstrap = async () => {
 
     app.register(fastifyRawBody, { field: 'rawBody', encoding: 'utf-8' })
     app.register(cors, { origin: resolvedOrigins })
+
+    app.register(appRouter)
 
     app.listen({ port: config.worker.port, host: config.worker.host })
 

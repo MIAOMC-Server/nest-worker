@@ -1,4 +1,5 @@
 import cors from '@fastify/cors'
+import { StartupLoop } from '@service/loop.service'
 import { readConfig } from '@util/appConfig.util'
 import { logger } from '@util/logger.util'
 import Fastify from 'fastify'
@@ -21,4 +22,7 @@ export const bootstrap = async () => {
 
     app.register(cors, { origin: resolvedOrigins })
     app.listen({ port: config.worker.port, host: config.worker.host })
+
+    // 启动任务循环
+    void StartupLoop()
 }

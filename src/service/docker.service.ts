@@ -1,5 +1,6 @@
 import { AppConfigs } from '@util/appConfig.util'
 import { structuredReturn } from '@util/common.util'
+import { serviceErrorHandler } from '@util/errorHandler.util'
 import { logger } from '@util/logger.util'
 import Docker from 'dockerode'
 import { existsSync } from 'fs'
@@ -13,6 +14,7 @@ export const findDockerSocket = () => {
         `${process.env.HOME}/.docker/run/docker.sock`,
         `${process.env.HOME}/.docker/desktop/docker.sock`
     ]
+
     let path: string | undefined
 
     for (const paths of unixPaths) {
@@ -23,6 +25,9 @@ export const findDockerSocket = () => {
     }
     return structuredReturn(!!path, 200, path ? 'Docker socket found' : 'Docker socket not found', { path })
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ServiceReturn<T = any> = { status: boolean; code: number; message: string; data: T | null }
 
 class DockerService {
     private docker: Docker
@@ -35,121 +40,197 @@ class DockerService {
         log.info(`DockerService initialized with socket: ${socket}`)
     }
 
-    public createContainer(options: Docker.ContainerCreateOptions): Promise<Docker.Container> {
-        log.info({ name: options.name, image: options.Image }, 'creating container')
-        return this.docker.createContainer(options)
-    }
-
-    public async deleteContainer(containerId: string, force = false): Promise<void> {
-        const container = this.docker.getContainer(containerId)
-        log.info({ containerId, force }, 'removing container')
-        await container.remove({ force })
-    }
-
-    public getContainer(containerId: string): Docker.Container {
-        return this.docker.getContainer(containerId)
-    }
-
-    public listContainers(options?: Docker.ContainerListOptions): Promise<Docker.ContainerInfo[]> {
-        return this.docker.listContainers(options)
-    }
-
-    public async startContainer(containerId: string): Promise<void> {
-        const container = this.docker.getContainer(containerId)
-        log.info({ containerId }, 'starting container')
-        await container.start()
-    }
-
-    public async stopContainer(containerId: string, timeout?: number): Promise<void> {
-        const container = this.docker.getContainer(containerId)
-        log.info({ containerId, timeout }, 'stopping container')
-        await container.stop({ t: timeout })
-    }
-
-    public async restartContainer(containerId: string, timeout?: number): Promise<void> {
-        const container = this.docker.getContainer(containerId)
-        log.info({ containerId, timeout }, 'restarting container')
-        await container.restart({ t: timeout })
-    }
-
-    public async inspectContainer(containerId: string): Promise<Docker.ContainerInspectInfo> {
-        const container = this.docker.getContainer(containerId)
-        return container.inspect()
-    }
-
-    public async getContainerLogs(containerId: string, options?: { tail?: number; since?: number }): Promise<string> {
-        const container = this.docker.getContainer(containerId)
-        const logStream = await container.logs({
-            stdout: true,
-            stderr: true,
-            tail: options?.tail ?? 100,
-            since: options?.since,
-            timestamps: true
-        })
-        return logStream.toString('utf-8')
-    }
-    
-
-    public async pullImage(image: string, tag = 'latest'): Promise<void> {
-        const fullImage = image.includes(':') ? image : `${image}:${tag}`
-        log.info({ image: fullImage }, 'pulling image')
-
-        const stream = await this.docker.pull(fullImage)
-
-        return new Promise((resolve, reject) => {
-            this.docker.modem.followProgress(stream, (err: Error | null, _output: unknown[]) => {
-                if (err) {
-                    log.error({ image: fullImage, error: err.message }, 'failed to pull image')
-                    reject(err)
-                } else {
-                    log.info({ image: fullImage }, 'image pulled successfully')
-                    resolve()
-                }
-            })
-        })
-    }
-
-    public async listImages(options?: Docker.ListImagesOptions): Promise<Docker.ImageInfo[]> {
-        return this.docker.listImages(options)
-    }
-
-    public async deleteImage(imageId: string, force = false): Promise<void> {
-        const image = this.docker.getImage(imageId)
-        log.info({ imageId, force }, 'removing image')
-        await image.remove({ force })
-    }
-
-    public async inspectImage(imageId: string): Promise<Docker.ImageInspectInfo> {
-        const image = this.docker.getImage(imageId)
-        return image.inspect()
-    }
-
-    public async pruneImages(filter?: object): Promise<Docker.PruneImagesInfo> {
-        log.info({ filter }, 'pruning unused images')
-        return this.docker.pruneImages(filter ?? {})
-    }
-
-    public async pruneContainers(filter?: object): Promise<Docker.PruneContainersInfo> {
-        log.info({ filter }, 'pruning stopped containers')
-        return this.docker.pruneContainers(filter ?? {})
-    }
-
-    public async ping(): Promise<boolean> {
+    public async createCell(options: Docker.ContainerCreateOptions): Promise<ServiceReturn<Docker.Container>> {
         try {
-            await this.docker.ping()
-            return true
-        } catch {
-            return false
+            log.info({ name: options.name, image: options.Image }, 'creating cell')
+            const cell = await this.docker.createContainer(options)
+            return structuredReturn(true, 200, 'cell created', cell)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to create cell')
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    public async getSystemInfo(): Promise<any> {
-        return this.docker.info()
+    public async deleteCell(cellId: string, force = false): Promise<ServiceReturn> {
+        try {
+            const cell = this.docker.getContainer(cellId)
+            log.info({ cellId, force }, 'removing cell')
+            await cell.remove({ force })
+            return structuredReturn(true, 200, 'cell removed', null)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to remove cell')
+        }
     }
 
-    public getVersion(): Promise<Docker.DockerVersion> {
-        return this.docker.version()
+    public getCell(cellId: string): Docker.Container {
+        return this.docker.getContainer(cellId)
+    }
+
+    public async listCells(options?: Docker.ContainerListOptions): Promise<ServiceReturn<Docker.ContainerInfo[]>> {
+        try {
+            const cells = await this.docker.listContainers(options)
+            return structuredReturn(true, 200, 'cells listed', cells)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to list cells')
+        }
+    }
+
+    public async startCell(cellId: string): Promise<ServiceReturn> {
+        try {
+            const cell = this.docker.getContainer(cellId)
+            log.info({ cellId }, 'starting cell')
+            await cell.start()
+            return structuredReturn(true, 200, 'cell started', null)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to start cell')
+        }
+    }
+
+    public async stopCell(cellId: string, timeout?: number): Promise<ServiceReturn> {
+        try {
+            const cell = this.docker.getContainer(cellId)
+            log.info({ cellId, timeout }, 'stopping cell')
+            await cell.stop({ t: timeout })
+            return structuredReturn(true, 200, 'cell stopped', null)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to stop cell')
+        }
+    }
+
+    public async restartCell(cellId: string, timeout?: number): Promise<ServiceReturn> {
+        try {
+            const cell = this.docker.getContainer(cellId)
+            log.info({ cellId, timeout }, 'restarting cell')
+            await cell.restart({ t: timeout })
+            return structuredReturn(true, 200, 'cell restarted', null)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to restart cell')
+        }
+    }
+
+    public async inspectCell(cellId: string): Promise<ServiceReturn<Docker.ContainerInspectInfo>> {
+        try {
+            const cell = this.docker.getContainer(cellId)
+            const info = await cell.inspect()
+            return structuredReturn(true, 200, 'cell inspected', info)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to inspect cell')
+        }
+    }
+
+    public async getCellLogs(
+        cellId: string,
+        options?: { tail?: number; since?: number }
+    ): Promise<ServiceReturn<string>> {
+        try {
+            const cell = this.docker.getContainer(cellId)
+            const logStream = await cell.logs({
+                stdout: true,
+                stderr: true,
+                tail: options?.tail ?? 100,
+                since: options?.since,
+                timestamps: true
+            })
+            return structuredReturn(true, 200, 'cell logs retrieved', logStream.toString('utf-8'))
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to get cell logs')
+        }
+    }
+
+    public async pullImage(image: string, tag = 'latest'): Promise<ServiceReturn> {
+        const fullImage = image.includes(':') ? image : `${image}:${tag}`
+        try {
+            log.info({ image: fullImage }, 'pulling image')
+            const stream = await this.docker.pull(fullImage)
+
+            await new Promise<void>((resolve, reject) => {
+                this.docker.modem.followProgress(stream, (err: Error | null) => {
+                    if (err) reject(err)
+                    else resolve()
+                })
+            })
+
+            log.info({ image: fullImage }, 'image pulled successfully')
+            return structuredReturn(true, 200, 'image pulled', null)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to pull image')
+        }
+    }
+
+    public async listImages(options?: Docker.ListImagesOptions): Promise<ServiceReturn<Docker.ImageInfo[]>> {
+        try {
+            const images = await this.docker.listImages(options)
+            return structuredReturn(true, 200, 'images listed', images)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to list images')
+        }
+    }
+
+    public async deleteImage(imageId: string, force = false): Promise<ServiceReturn> {
+        try {
+            const image = this.docker.getImage(imageId)
+            log.info({ imageId, force }, 'removing image')
+            await image.remove({ force })
+            return structuredReturn(true, 200, 'image removed', null)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to remove image')
+        }
+    }
+
+    public async inspectImage(imageId: string): Promise<ServiceReturn<Docker.ImageInspectInfo>> {
+        try {
+            const image = this.docker.getImage(imageId)
+            const info = await image.inspect()
+            return structuredReturn(true, 200, 'image inspected', info)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to inspect image')
+        }
+    }
+
+    public async pruneImages(filter?: object): Promise<ServiceReturn<Docker.PruneImagesInfo>> {
+        try {
+            log.info({ filter }, 'pruning unused images')
+            const result = await this.docker.pruneImages(filter ?? {})
+            return structuredReturn(true, 200, 'images pruned', result)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to prune images')
+        }
+    }
+
+    public async pruneCells(filter?: object): Promise<ServiceReturn<Docker.PruneContainersInfo>> {
+        try {
+            log.info({ filter }, 'pruning stopped cells')
+            const result = await this.docker.pruneContainers(filter ?? {})
+            return structuredReturn(true, 200, 'cells pruned', result)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to prune cells')
+        }
+    }
+
+    public async ping(): Promise<ServiceReturn<boolean>> {
+        try {
+            await this.docker.ping()
+            return structuredReturn(true, 200, 'docker daemon is reachable', true)
+        } catch (err) {
+            return serviceErrorHandler(err, 'docker daemon is not reachable')
+        }
+    }
+
+    public async getSystemInfo(): Promise<ServiceReturn> {
+        try {
+            const info = await this.docker.info()
+            return structuredReturn(true, 200, 'system info retrieved', info)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to get system info')
+        }
+    }
+
+    public async getVersion(): Promise<ServiceReturn<Docker.DockerVersion>> {
+        try {
+            const version = await this.docker.version()
+            return structuredReturn(true, 200, 'version retrieved', version)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to get docker version')
+        }
     }
 }
 

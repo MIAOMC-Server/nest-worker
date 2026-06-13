@@ -18,12 +18,11 @@ export const findDockerSocket = () => {
     let path: string | undefined
 
     for (const paths of unixPaths) {
-        const exist = existsSync(paths)
-        if (exist) {
-            path = paths
+        if (existsSync(paths)) {
+            return structuredReturn(true, 200, 'Docker socket found', { path: paths })
         }
     }
-    return structuredReturn(!!path, 200, path ? 'Docker socket found' : 'Docker socket not found', { path })
+    return structuredReturn(false, 200, 'Docker socket not found', { path: undefined })
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,12 +31,28 @@ type ServiceReturn<T = any> = { status: boolean; code: number; message: string; 
 class DockerService {
     private docker: Docker
 
+    private registryNotEmpty: boolean = false
+    private registryEndpoint: string | undefined = undefined
+    private registryUsername: string | undefined = undefined
+    private registryPassword: string | undefined = undefined
+
     constructor() {
         const socket = AppConfigs.worker.docker.socketPath
         if (!socket) throw new Error('Docker socket path is not defined in configuration')
 
         this.docker = new Docker({ socketPath: socket })
         log.info(`DockerService initialized with socket: ${socket}`)
+
+        if (
+            AppConfigs.worker.docker.registry.endpoint ||
+            AppConfigs.worker.docker.registry.username ||
+            AppConfigs.worker.docker.registry.password
+        ) {
+            this.registryNotEmpty = true
+            this.registryEndpoint = AppConfigs.worker.docker.registry.endpoint
+            this.registryUsername = AppConfigs.worker.docker.registry.username
+            this.registryPassword = AppConfigs.worker.docker.registry.password
+        }
     }
 
     public async createCell(options: Docker.ContainerCreateOptions): Promise<ServiceReturn<Docker.Container>> {
@@ -193,6 +208,36 @@ class DockerService {
             return structuredReturn(true, 200, 'images pruned', result)
         } catch (err) {
             return serviceErrorHandler(err, 'failed to prune images')
+        }
+    }
+
+    public async pushImage(imageHash: string): Promise<ServiceReturn> {
+        if (!this.registryNotEmpty) {
+            log.warn('registry credentials are not fully set, skipping push')
+            return structuredReturn(false, 400, 'registry credentials are not fully set', null)
+        }
+
+        try {
+            const target = this.docker.getImage(imageHash)
+            const stream = await target.push({
+                authconfig: {
+                    username: this.registryUsername,
+                    password: this.registryPassword,
+                    serveraddress: this.registryEndpoint
+                }
+            })
+
+            await new Promise<void>((resolve, reject) => {
+                this.docker.modem.followProgress(stream, (err: Error | null) => {
+                    if (err) reject(err)
+                    else resolve()
+                })
+            })
+
+            log.info({ imageHash }, 'image pushed successfully')
+            return structuredReturn(true, 200, 'image pushed successfully', null)
+        } catch (err) {
+            return serviceErrorHandler(err, 'failed to push image')
         }
     }
 

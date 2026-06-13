@@ -26,8 +26,38 @@ export const cellCreateRequestSchema = z.object({
 
 export type CellCreateRequest = z.infer<typeof cellCreateRequestSchema>
 
-export const cellDeleteRequestSchema = z.object({
-    cellUUID: z.string()
+export const cellUUIDParamSchema = z.object({
+    cellUUID: z.uuid()
 })
 
+export const workerImageHashParamSchema = z.object({
+    imageHash: z.string()
+})
+
+export const cellDeleteRequestSchema = cellUUIDParamSchema
+
 export type CellDeleteRequest = z.infer<typeof cellDeleteRequestSchema>
+
+export const cellInspectRequestSchema = cellUUIDParamSchema
+
+export type CellInspectRequest = z.infer<typeof cellInspectRequestSchema>
+
+export const pullDockerImageRequestSchema = workerImageHashParamSchema
+
+export type PullDockerImageRequest = z.infer<typeof pullDockerImageRequestSchema>
+
+export const pushDockerImageRequestSchema = workerImageHashParamSchema
+
+export type PushDockerImageRequest = z.infer<typeof pushDockerImageRequestSchema>
+
+export const restartCellRequestSchema = cellUUIDParamSchema
+
+export type RestartCellRequest = z.infer<typeof restartCellRequestSchema>
+
+export const stopCellRequestSchema = cellUUIDParamSchema
+
+export type StopCellRequest = z.infer<typeof stopCellRequestSchema>
+
+export const startCellRequestSchema = cellUUIDParamSchema
+
+export type StartCellRequest = z.infer<typeof startCellRequestSchema>

@@ -27,7 +27,7 @@ export const bootstrap = async () => {
 
     app.register(appRouter)
 
-    app.listen({ port: config.worker.port, host: config.worker.host })
+    await app.listen({ port: config.worker.port, host: config.worker.host })
 
     // 启动任务循环
     void StartupLoop()

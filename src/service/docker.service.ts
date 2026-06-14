@@ -5,6 +5,8 @@ import { logger } from '@util/logger.util'
 import Docker from 'dockerode'
 import { existsSync } from 'fs'
 
+const CELL_ID_PREFIX = 'nest_'
+
 const log = logger.child({ module: 'docker/service' })
 
 export const findDockerSocket = () => {
@@ -31,6 +33,10 @@ class DockerService {
     private registryUsername: string | undefined = undefined
     private registryPassword: string | undefined = undefined
 
+    private resolveCellId(cellId: string): string {
+        return cellId.startsWith(CELL_ID_PREFIX) ? cellId : `${CELL_ID_PREFIX}${cellId}`
+    }
+
     constructor() {
         const socket = AppConfigs.worker.docker.socketPath
         if (!socket) throw new Error('Docker socket path is not defined in configuration')
@@ -52,8 +58,10 @@ class DockerService {
 
     public async createCell(options: Docker.ContainerCreateOptions) {
         try {
-            log.info({ name: options.name, image: options.Image }, 'creating cell')
-            const cell = await this.docker.createContainer(options)
+            const name = options.name ? this.resolveCellId(options.name) : undefined
+            const resolvedOptions = { ...options, name }
+            log.info({ name, image: options.Image }, 'creating cell')
+            const cell = await this.docker.createContainer(resolvedOptions)
 
             return structuredReturn(true, 200, 'cell created', cell)
         } catch (err) {
@@ -63,8 +71,9 @@ class DockerService {
 
     public async deleteCell(cellId: string, force = false) {
         try {
-            const cell = this.docker.getContainer(cellId)
-            log.info({ cellId, force }, 'removing cell')
+            const resolvedId = this.resolveCellId(cellId)
+            const cell = this.docker.getContainer(resolvedId)
+            log.info({ cellId: resolvedId, force }, 'removing cell')
             await cell.remove({ force })
             return structuredReturn(true, 200, 'cell removed', null)
         } catch (err) {
@@ -73,7 +82,7 @@ class DockerService {
     }
 
     public getCell(cellId: string): Docker.Container {
-        return this.docker.getContainer(cellId)
+        return this.docker.getContainer(this.resolveCellId(cellId))
     }
 
     public async listCells(options: Docker.ContainerListOptions = {}) {
@@ -97,8 +106,9 @@ class DockerService {
 
     public async startCell(cellId: string) {
         try {
-            const cell = this.docker.getContainer(cellId)
-            log.info({ cellId }, 'starting cell')
+            const resolvedId = this.resolveCellId(cellId)
+            const cell = this.docker.getContainer(resolvedId)
+            log.info({ cellId: resolvedId }, 'starting cell')
             await cell.start()
             return structuredReturn(true, 200, 'cell started', null)
         } catch (err) {
@@ -108,8 +118,9 @@ class DockerService {
 
     public async stopCell(cellId: string, timeout?: number) {
         try {
-            const cell = this.docker.getContainer(cellId)
-            log.info({ cellId, timeout }, 'stopping cell')
+            const resolvedId = this.resolveCellId(cellId)
+            const cell = this.docker.getContainer(resolvedId)
+            log.info({ cellId: resolvedId, timeout }, 'stopping cell')
             await cell.stop({ t: timeout })
             return structuredReturn(true, 200, 'cell stopped', null)
         } catch (err) {
@@ -119,8 +130,9 @@ class DockerService {
 
     public async restartCell(cellId: string, timeout?: number) {
         try {
-            const cell = this.docker.getContainer(cellId)
-            log.info({ cellId, timeout }, 'restarting cell')
+            const resolvedId = this.resolveCellId(cellId)
+            const cell = this.docker.getContainer(resolvedId)
+            log.info({ cellId: resolvedId, timeout }, 'restarting cell')
             await cell.restart({ t: timeout })
             return structuredReturn(true, 200, 'cell restarted', null)
         } catch (err) {
@@ -130,7 +142,8 @@ class DockerService {
 
     public async inspectCell(cellId: string) {
         try {
-            const cell = this.docker.getContainer(cellId)
+            const resolvedId = this.resolveCellId(cellId)
+            const cell = this.docker.getContainer(resolvedId)
             const info = await cell.inspect()
             return structuredReturn(true, 200, 'cell inspected', info)
         } catch (err) {
@@ -140,7 +153,8 @@ class DockerService {
 
     public async getCellLogs(cellId: string, options?: { tail?: number; since?: number }) {
         try {
-            const cell = this.docker.getContainer(cellId)
+            const resolvedId = this.resolveCellId(cellId)
+            const cell = this.docker.getContainer(resolvedId)
             const logStream = await cell.logs({
                 stdout: true,
                 stderr: true,
@@ -317,7 +331,8 @@ export const getCellStatus = async () => {
     for (const cell of cells) {
         const cellState = cell.State.toLowerCase()
         const cellUUID =
-            cell.Labels?.['miaomc.nest.cell.uuid'] || (cell.Names?.[0] || '').replace(/^\//, '').replace('nest_', '')
+            cell.Labels?.['miaomc.nest.cell.uuid'] ||
+            (cell.Names?.[0] || '').replace(/^\//, '').replace(CELL_ID_PREFIX, '')
 
         const cellStatus = { uuid: cellUUID, state: cellState }
         statusCount.cellList.push(cellStatus)

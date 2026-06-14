@@ -36,7 +36,7 @@ export const processCellCreate = async (cellOptions: CellCreateRequest['cellOpti
         }
 
         const createOptions = {
-            name: `nest_${cellOptions.cellUUID}`,
+            name: cellOptions.cellUUID,
             Image: cellOptions.imageHash,
             Env: resolvedEnv,
             Cmd: cellOptions.command,

@@ -1,5 +1,5 @@
 {
-    "cSpell.words": ["authconfig", "miaomc", "serveraddress"],
+    "cSpell.words": ["authconfig", "HMAC", "miaomc", "serveraddress"],
     "cSpell.ignorePaths": [
         "package-lock.json",
         "node_modules",

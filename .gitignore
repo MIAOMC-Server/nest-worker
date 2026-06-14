@@ -5,3 +5,11 @@ node_modules
 generated/prisma
 dist
 config.json
+
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+bun.lock
+bun.lockb
+
+config.json

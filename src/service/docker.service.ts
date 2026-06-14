@@ -15,8 +15,6 @@ export const findDockerSocket = () => {
         `${process.env.HOME}/.docker/desktop/docker.sock`
     ]
 
-    let path: string | undefined
-
     for (const paths of unixPaths) {
         if (existsSync(paths)) {
             return structuredReturn(true, 200, 'Docker socket found', { path: paths })
@@ -24,9 +22,6 @@ export const findDockerSocket = () => {
     }
     return structuredReturn(false, 200, 'Docker socket not found', { path: undefined })
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ServiceReturn<T = any> = { status: boolean; code: number; message: string; data: T | null }
 
 class DockerService {
     private docker: Docker
@@ -55,7 +50,7 @@ class DockerService {
         }
     }
 
-    public async createCell(options: Docker.ContainerCreateOptions): Promise<ServiceReturn<Docker.Container>> {
+    public async createCell(options: Docker.ContainerCreateOptions) {
         try {
             log.info({ name: options.name, image: options.Image }, 'creating cell')
             const cell = await this.docker.createContainer(options)
@@ -65,7 +60,7 @@ class DockerService {
         }
     }
 
-    public async deleteCell(cellId: string, force = false): Promise<ServiceReturn> {
+    public async deleteCell(cellId: string, force = false) {
         try {
             const cell = this.docker.getContainer(cellId)
             log.info({ cellId, force }, 'removing cell')
@@ -80,7 +75,7 @@ class DockerService {
         return this.docker.getContainer(cellId)
     }
 
-    public async listCells(options?: Docker.ContainerListOptions): Promise<ServiceReturn<Docker.ContainerInfo[]>> {
+    public async listCells(options?: Docker.ContainerListOptions) {
         try {
             const cells = await this.docker.listContainers(options)
             return structuredReturn(true, 200, 'cells listed', cells)
@@ -89,7 +84,7 @@ class DockerService {
         }
     }
 
-    public async startCell(cellId: string): Promise<ServiceReturn> {
+    public async startCell(cellId: string) {
         try {
             const cell = this.docker.getContainer(cellId)
             log.info({ cellId }, 'starting cell')
@@ -100,7 +95,7 @@ class DockerService {
         }
     }
 
-    public async stopCell(cellId: string, timeout?: number): Promise<ServiceReturn> {
+    public async stopCell(cellId: string, timeout?: number) {
         try {
             const cell = this.docker.getContainer(cellId)
             log.info({ cellId, timeout }, 'stopping cell')
@@ -111,7 +106,7 @@ class DockerService {
         }
     }
 
-    public async restartCell(cellId: string, timeout?: number): Promise<ServiceReturn> {
+    public async restartCell(cellId: string, timeout?: number) {
         try {
             const cell = this.docker.getContainer(cellId)
             log.info({ cellId, timeout }, 'restarting cell')
@@ -122,7 +117,7 @@ class DockerService {
         }
     }
 
-    public async inspectCell(cellId: string): Promise<ServiceReturn<Docker.ContainerInspectInfo>> {
+    public async inspectCell(cellId: string) {
         try {
             const cell = this.docker.getContainer(cellId)
             const info = await cell.inspect()
@@ -132,10 +127,7 @@ class DockerService {
         }
     }
 
-    public async getCellLogs(
-        cellId: string,
-        options?: { tail?: number; since?: number }
-    ): Promise<ServiceReturn<string>> {
+    public async getCellLogs(cellId: string, options?: { tail?: number; since?: number }) {
         try {
             const cell = this.docker.getContainer(cellId)
             const logStream = await cell.logs({
@@ -151,7 +143,7 @@ class DockerService {
         }
     }
 
-    public async pullImage(image: string, tag = 'latest'): Promise<ServiceReturn> {
+    public async pullImage(image: string, tag = 'latest') {
         const fullImage = image.includes(':') ? image : `${image}:${tag}`
         try {
             log.info({ image: fullImage }, 'pulling image')
@@ -171,7 +163,7 @@ class DockerService {
         }
     }
 
-    public async listImages(options?: Docker.ListImagesOptions): Promise<ServiceReturn<Docker.ImageInfo[]>> {
+    public async listImages(options?: Docker.ListImagesOptions) {
         try {
             const images = await this.docker.listImages(options)
             return structuredReturn(true, 200, 'images listed', images)
@@ -180,7 +172,7 @@ class DockerService {
         }
     }
 
-    public async deleteImage(imageId: string, force = false): Promise<ServiceReturn> {
+    public async deleteImage(imageId: string, force = false) {
         try {
             const image = this.docker.getImage(imageId)
             log.info({ imageId, force }, 'removing image')
@@ -191,7 +183,7 @@ class DockerService {
         }
     }
 
-    public async inspectImage(imageId: string): Promise<ServiceReturn<Docker.ImageInspectInfo>> {
+    public async inspectImage(imageId: string) {
         try {
             const image = this.docker.getImage(imageId)
             const info = await image.inspect()
@@ -201,7 +193,7 @@ class DockerService {
         }
     }
 
-    public async pruneImages(filter?: object): Promise<ServiceReturn<Docker.PruneImagesInfo>> {
+    public async pruneImages(filter?: object) {
         try {
             log.info({ filter }, 'pruning unused images')
             const result = await this.docker.pruneImages(filter ?? {})
@@ -211,7 +203,7 @@ class DockerService {
         }
     }
 
-    public async pushImage(imageHash: string): Promise<ServiceReturn> {
+    public async pushImage(imageHash: string) {
         if (!this.registryNotEmpty) {
             log.warn('registry credentials are not fully set, skipping push')
             return structuredReturn(false, 400, 'registry credentials are not fully set', null)
@@ -241,7 +233,7 @@ class DockerService {
         }
     }
 
-    public async pruneCells(filter?: object): Promise<ServiceReturn<Docker.PruneContainersInfo>> {
+    public async pruneCells(filter?: object) {
         try {
             log.info({ filter }, 'pruning stopped cells')
             const result = await this.docker.pruneContainers(filter ?? {})
@@ -251,7 +243,7 @@ class DockerService {
         }
     }
 
-    public async ping(): Promise<ServiceReturn<boolean>> {
+    public async ping() {
         try {
             await this.docker.ping()
             return structuredReturn(true, 200, 'docker daemon is reachable', true)
@@ -260,7 +252,7 @@ class DockerService {
         }
     }
 
-    public async getSystemInfo(): Promise<ServiceReturn> {
+    public async getSystemInfo() {
         try {
             const info = await this.docker.info()
             return structuredReturn(true, 200, 'system info retrieved', info)
@@ -269,7 +261,7 @@ class DockerService {
         }
     }
 
-    public async getVersion(): Promise<ServiceReturn<Docker.DockerVersion>> {
+    public async getVersion() {
         try {
             const version = await this.docker.version()
             return structuredReturn(true, 200, 'version retrieved', version)

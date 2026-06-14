@@ -1,6 +1,6 @@
 import { getSystemResources, getSystemResourcesReturn } from '@service/system.service'
 
-export let systemInfo: getSystemResourcesReturn | undefined = undefined
+export let systemInfo: getSystemResourcesReturn = getSystemResources()
 
 export const StartupLoop = async () => {
     let loopTick = 0

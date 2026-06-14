@@ -54,6 +54,7 @@ class DockerService {
         try {
             log.info({ name: options.name, image: options.Image }, 'creating cell')
             const cell = await this.docker.createContainer(options)
+
             return structuredReturn(true, 200, 'cell created', cell)
         } catch (err) {
             return serviceErrorHandler(err, 'failed to create cell')
@@ -75,9 +76,19 @@ class DockerService {
         return this.docker.getContainer(cellId)
     }
 
-    public async listCells(options?: Docker.ContainerListOptions) {
+    public async listCells(options: Docker.ContainerListOptions = {}) {
         try {
-            const cells = await this.docker.listContainers(options)
+            const existingFilters = typeof options.filters === 'object' ? options.filters : {}
+
+            const mergedOptions: Docker.ContainerListOptions = {
+                ...options,
+                filters: {
+                    ...existingFilters,
+                    label: [...(existingFilters.label ?? []), 'miaomc.nest.cell=true']
+                }
+            }
+
+            const cells = await this.docker.listContainers(mergedOptions)
             return structuredReturn(true, 200, 'cells listed', cells)
         } catch (err) {
             return serviceErrorHandler(err, 'failed to list cells')
@@ -272,3 +283,51 @@ class DockerService {
 }
 
 export const dockerService = new DockerService()
+
+type DockerCellState = 'created' | 'running' | 'exited' | 'paused' | 'dead' | 'restarting' | 'removing' | 'unknown'
+
+export const getCellStatus = async () => {
+    let status = {
+        created: 0,
+        running: 0,
+        exited: 0,
+        paused: 0,
+        dead: 0,
+        restarting: 0,
+        removing: 0,
+        unknown: 0
+    } satisfies Record<DockerCellState, number>
+
+    let cellList: Array<Record<string, string>> = []
+
+    let statusCount = {
+        cells: 0,
+        counter: status,
+        cellList
+    }
+
+    const listCellsResult = await dockerService.listCells()
+    if (!listCellsResult.status) return structuredReturn(false, 500, 'docker is unavailable', listCellsResult.data)
+
+    const cells = listCellsResult.data
+    if (!cells || cells.length === 0) return structuredReturn(true, 200, 'no cells found', statusCount)
+
+    statusCount.cells = cells.length
+
+    for (const cell of cells) {
+        const cellState = cell.State.toLowerCase()
+        const cellUUID =
+            cell.Labels?.['miaomc.nest.cell.uuid'] || (cell.Names?.[0] || '').replace(/^\//, '').replace('nest_', '')
+
+        const cellStatus = { uuid: cellUUID, state: cellState }
+        statusCount.cellList.push(cellStatus)
+
+        if (cellState in status) {
+            statusCount.counter[cellState as DockerCellState]++
+        } else {
+            statusCount.counter.unknown++
+        }
+    }
+
+    return structuredReturn(true, 200, 'cell status retrieved', statusCount)
+}

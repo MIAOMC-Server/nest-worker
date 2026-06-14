@@ -1,4 +1,5 @@
 import { SignaturePayloadShape, signatureService } from '@service/signature.server'
+import { structuredResponse } from '@util/common.util'
 import { logger } from '@util/logger.util'
 import { FastifyReply, FastifyRequest } from 'fastify'
 
@@ -23,7 +24,7 @@ export const authenticationHook = async (
         !signatureHeaders['x-miaomc-nest-worker-signature']
     ) {
         log.info(`${req.ip}/Missing authentication headers`)
-        return reply.status(401).send({ error: 'Missing authentication headers' })
+        return reply.status(401).send(structuredResponse(false, 401, 'Missing authentication headers'))
     }
 
     const signature = signatureHeaders['x-miaomc-nest-worker-signature']
@@ -32,7 +33,7 @@ export const authenticationHook = async (
 
     if (isNaN(expireAt) || expireAt < currentTime) {
         log.info(`${req.ip}/Signature expired`)
-        return reply.status(401).send({ error: 'Signature expired' })
+        return reply.status(401).send(structuredResponse(false, 401, 'Signature expired'))
     }
 
     const rawBody = req.rawBody ? (Buffer.isBuffer(req.rawBody) ? req.rawBody.toString('utf-8') : req.rawBody) : ''
@@ -48,6 +49,6 @@ export const authenticationHook = async (
 
     if (!verifyResult) {
         log.info(`${req.ip}/Invalid signature`)
-        return reply.status(401).send({ error: 'Invalid signature' })
+        return reply.status(401).send(structuredResponse(false, 401, 'Invalid signature'))
     }
 }

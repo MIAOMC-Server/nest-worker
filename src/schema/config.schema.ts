@@ -21,7 +21,12 @@ export const appConfigSchema = z.object({
         }),
         docker: z.object({
             type: z.enum(['socket']).default('socket'),
-            socketPath: z.string().default('/var/run/docker.sock')
+            socketPath: z.string().default('/var/run/docker.sock'),
+            registry: z.object({
+                endpoint: z.string().default(''),
+                username: z.string().default(''),
+                password: z.string().default('')
+            })
         })
     }),
     queen: z.object({
@@ -56,7 +61,12 @@ export const defaultConfig = (uuid: string, secret: string, socketPath: string =
             },
             docker: {
                 type: 'socket',
-                socketPath: socketPath
+                socketPath: socketPath,
+                registry: {
+                    endpoint: '',
+                    username: '',
+                    password: ''
+                }
             }
         },
         queen: {

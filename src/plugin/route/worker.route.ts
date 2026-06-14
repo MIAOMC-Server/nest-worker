@@ -1,6 +1,7 @@
 import {
     createCellHandler,
     deleteCellHandler,
+    heartbeatHandler,
     inspectCellHandler,
     listCellsHandler,
     listDockerImagesHandler,
@@ -9,7 +10,7 @@ import {
     restartCellHandler,
     startCellHandler,
     stopCellHandler
-} from '@controller/cell.controller'
+} from '@controller/worker.controller'
 import { authenticationHook } from '@plugin/hook/authentication.hook'
 import {
     cellCreateRequestSchema,
@@ -39,4 +40,6 @@ export const workerRoute = async (router: FastifyInstance) => {
     router.get('/images', listDockerImagesHandler)
     router.post('/image/pull', { schema: { body: pullDockerImageRequestSchema } }, pullDockerImageHandler)
     router.post('/image/push', { schema: { body: pushDockerImageRequestSchema } }, pushDockerImageHandler)
+
+    router.get('/heartbeat', heartbeatHandler)
 }

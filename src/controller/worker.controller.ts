@@ -19,6 +19,8 @@ import {
     StartCellRequest,
     StopCellRequest
 } from '@schema/api/cell/request/request.schema'
+import { getCellStatus } from '@service/docker.service'
+import { systemInfo } from '@service/loop.service'
 import { structuredResponse } from '@util/common.util'
 import { controllerErrorHandler } from '@util/errorHandler.util'
 import { FastifyReply, FastifyRequest } from 'fastify'
@@ -37,7 +39,7 @@ export const createCellHandler = async (req: FastifyRequest<{ Body: CellCreateRe
 
         return reply.status(201).send(structuredResponse(true, 201, 'Cell created successfully', createResult.data))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to create cell')
+        return controllerErrorHandler(reply, error, 'Failed to create cell')
     }
 }
 
@@ -55,7 +57,7 @@ export const deleteCellHandler = async (req: FastifyRequest<{ Params: CellDelete
 
         return reply.status(200).send(structuredResponse(true, 200, 'Cell deleted successfully', null))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to delete cell')
+        return controllerErrorHandler(reply, error, 'Failed to delete cell')
     }
 }
 
@@ -69,7 +71,7 @@ export const listCellsHandler = async (_req: FastifyRequest, reply: FastifyReply
 
         return reply.status(200).send(structuredResponse(true, 200, 'Cells listed successfully', listResult.data))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to list cells')
+        return controllerErrorHandler(reply, error, 'Failed to list cells')
     }
 }
 
@@ -87,7 +89,7 @@ export const inspectCellHandler = async (req: FastifyRequest<{ Params: CellInspe
 
         return reply.status(200).send(structuredResponse(true, 200, 'Cell inspected successfully', inspectResult.data))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to inspect cell')
+        return controllerErrorHandler(reply, error, 'Failed to inspect cell')
     }
 }
 
@@ -108,7 +110,7 @@ export const pullDockerImageHandler = async (
 
         return reply.status(200).send(structuredResponse(true, 200, 'Image pull initiated successfully', null))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to pull docker image')
+        return controllerErrorHandler(reply, error, 'Failed to pull docker image')
     }
 }
 
@@ -129,7 +131,7 @@ export const pushDockerImageHandler = async (
 
         return reply.status(200).send(structuredResponse(true, 200, 'Image push initiated successfully', null))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to push docker image')
+        return controllerErrorHandler(reply, error, 'Failed to push docker image')
     }
 }
 
@@ -145,7 +147,7 @@ export const listDockerImagesHandler = async (_req: FastifyRequest, reply: Fasti
             .status(200)
             .send(structuredResponse(true, 200, 'Docker images listed successfully', listResult.data))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to list docker images')
+        return controllerErrorHandler(reply, error, 'Failed to list docker images')
     }
 }
 
@@ -163,7 +165,7 @@ export const restartCellHandler = async (req: FastifyRequest<{ Params: CellInspe
 
         return reply.status(200).send(structuredResponse(true, 200, 'Cell restart initiated successfully', null))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to restart cell')
+        return controllerErrorHandler(reply, error, 'Failed to restart cell')
     }
 }
 
@@ -181,7 +183,7 @@ export const stopCellHandler = async (req: FastifyRequest<{ Params: StopCellRequ
 
         return reply.status(200).send(structuredResponse(true, 200, 'Cell stop initiated successfully', null))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to stop cell')
+        return controllerErrorHandler(reply, error, 'Failed to stop cell')
     }
 }
 
@@ -199,6 +201,23 @@ export const startCellHandler = async (req: FastifyRequest<{ Params: StartCellRe
 
         return reply.status(200).send(structuredResponse(true, 200, 'Cell started successfully', null))
     } catch (error) {
-        controllerErrorHandler(reply, error, 'Failed to start cell')
+        return controllerErrorHandler(reply, error, 'Failed to start cell')
+    }
+}
+
+export const heartbeatHandler = async (_req: FastifyRequest, reply: FastifyReply) => {
+    try {
+        const getCellStatusResult = await getCellStatus()
+        if (!getCellStatusResult.status)
+            return reply.status(500).send(structuredResponse(false, 500, 'Failed to get cell status', null))
+
+        const finalData = {
+            system: systemInfo,
+            cells: getCellStatusResult.data
+        }
+
+        return reply.status(200).send(structuredResponse(true, 200, 'Heartbeat retrieved successfully', finalData))
+    } catch (error) {
+        return controllerErrorHandler(reply, error, 'Failed to get heartbeat')
     }
 }

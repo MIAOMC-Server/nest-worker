@@ -4,7 +4,7 @@ import { serviceErrorHandler } from '@util/errorHandler.util'
 import { logger } from '@util/logger.util'
 import Docker from 'dockerode'
 import { existsSync } from 'fs'
-import { createInterface } from 'readline'
+import { createInterface } from 'readline/promises'
 
 const CELL_ID_PREFIX = 'nest_'
 
@@ -361,19 +361,32 @@ export const getCellStatus = async () => {
 }
 
 export let dockerListenerStarted = false
+export let dockerListenerStarting = false
 
 export const listenDockerEvents = async () => {
-    dockerListenerStarted = true
+    // 1. 防止重复建立流：同时检查 started 和 starting 状态
+    if (dockerListenerStarting || dockerListenerStarted) return
 
-    const stream = await dockerService.dockerEventStream()
-    const readline = createInterface({ input: stream })
+    dockerListenerStarting = true
 
     try {
+        const stream = await dockerService.dockerEventStream()
+        const readline = createInterface({ input: stream })
+
+        // 2. 状态纠正：确保流成功建立后再标记为已启动
+        dockerListenerStarted = true
+        dockerListenerStarting = false
+
         readline.on('line', (line) => {
-            void resolveDockerEvent('line', line)
+            try {
+                void resolveDockerEvent('line', line)
+            } catch (err) {
+                log.error(`Error processing Docker event line: \n${err}`)
+            }
         })
 
         readline.on('error', (err) => {
+            log.error(`Error reading Docker event stream: \n${err}`)
             void resolveDockerEvent('error', String(err))
         })
 
@@ -382,7 +395,9 @@ export const listenDockerEvents = async () => {
             void resolveDockerEvent('close')
         })
     } catch (err) {
-        log.error(`Error listening to Docker events: ${err}`)
+        dockerListenerStarted = false
+        dockerListenerStarting = false
+        log.error(`Error listening to Docker events: \n${err}`)
     }
 }
 

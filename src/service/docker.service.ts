@@ -4,6 +4,7 @@ import { serviceErrorHandler } from '@util/errorHandler.util'
 import { logger } from '@util/logger.util'
 import Docker from 'dockerode'
 import { existsSync } from 'fs'
+import { createInterface } from 'readline'
 
 const CELL_ID_PREFIX = 'nest_'
 
@@ -294,6 +295,18 @@ class DockerService {
             return serviceErrorHandler(err, 'failed to get docker version')
         }
     }
+
+    public async dockerEventStream() {
+        const mergedOptions: Docker.GetEventsOptions = {
+            filters: {
+                type: ['container'],
+                event: ['start', 'die', 'stop', 'destroy', 'health_status', 'oom'],
+                label: ['miaomc.nest.cell=true']
+            }
+        }
+
+        return this.docker.getEvents(mergedOptions)
+    }
 }
 
 export const dockerService = new DockerService()
@@ -345,4 +358,35 @@ export const getCellStatus = async () => {
     }
 
     return structuredReturn(true, 200, 'cell status retrieved', statusCount)
+}
+
+export let dockerListenerStarted = false
+
+export const listenDockerEvents = async () => {
+    dockerListenerStarted = true
+
+    const stream = await dockerService.dockerEventStream()
+    const readline = createInterface({ input: stream })
+
+    try {
+        readline.on('line', (line) => {
+            void resolveDockerEvent('line', line)
+        })
+
+        readline.on('error', (err) => {
+            void resolveDockerEvent('error', String(err))
+        })
+
+        readline.on('close', () => {
+            dockerListenerStarted = false
+            void resolveDockerEvent('close')
+        })
+    } catch (err) {
+        log.error(`Error listening to Docker events: ${err}`)
+    }
+}
+
+export const resolveDockerEvent = (_eventType: string, _event?: string) => {
+    // TODO: 这里可以根据事件类型和状态来处理不同的逻辑，例如更新数据库状态、发送通知等
+    // WARN: 注意使用 resolveJSON 来转换 JSON 类型
 }

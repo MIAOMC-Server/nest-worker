@@ -23,3 +23,12 @@ export const structuredResponse = <T>(status: boolean, code: number, message: st
         data
     }
 }
+
+export const resolveJSON = (data: string) => {
+    try {
+        const myObj = JSON.parse(data)
+        return { status: true, data: myObj }
+    } catch {
+        return { status: false }
+    }
+}

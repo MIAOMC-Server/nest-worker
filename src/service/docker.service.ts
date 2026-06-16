@@ -4,6 +4,7 @@ import { serviceErrorHandler } from '@util/errorHandler.util'
 import { logger } from '@util/logger.util'
 import Docker from 'dockerode'
 import { existsSync } from 'fs'
+import { createInterface } from 'readline/promises'
 
 const CELL_ID_PREFIX = 'nest_'
 
@@ -294,6 +295,18 @@ class DockerService {
             return serviceErrorHandler(err, 'failed to get docker version')
         }
     }
+
+    public async dockerEventStream() {
+        const mergedOptions: Docker.GetEventsOptions = {
+            filters: {
+                type: ['container'],
+                event: ['start', 'die', 'stop', 'destroy', 'health_status', 'oom'],
+                label: ['miaomc.nest.cell=true']
+            }
+        }
+
+        return this.docker.getEvents(mergedOptions)
+    }
 }
 
 export const dockerService = new DockerService()
@@ -345,4 +358,61 @@ export const getCellStatus = async () => {
     }
 
     return structuredReturn(true, 200, 'cell status retrieved', statusCount)
+}
+
+export let dockerListenerStarted = false
+export let dockerListenerStarting = false
+
+export const listenDockerEvents = async () => {
+    // 1. 防止重复建立流：同时检查 started 和 starting 状态
+    if (dockerListenerStarting || dockerListenerStarted) return
+
+    dockerListenerStarting = true
+
+    let readline: ReturnType<typeof createInterface> | undefined = undefined
+    let stream: NodeJS.ReadableStream | undefined = undefined
+
+    const removeListeners = () => {
+        dockerListenerStarted = false
+        dockerListenerStarting = false
+
+        readline?.close()
+        stream?.removeAllListeners()
+    }
+
+    try {
+        stream = await dockerService.dockerEventStream()
+        readline = createInterface({ input: stream })
+
+        // 2. 状态纠正：确保流成功建立后再标记为已启动
+        dockerListenerStarted = true
+        dockerListenerStarting = false
+
+        readline.on('line', (line) => {
+            try {
+                void resolveDockerEvent('line', line)
+            } catch (err) {
+                log.error(`Error processing Docker event line: \n${err}`)
+            }
+        })
+
+        readline.on('error', (err) => {
+            log.error(`Error reading Docker event stream: \n${err}`)
+            void resolveDockerEvent('error', String(err))
+            removeListeners()
+        })
+
+        readline.on('close', () => {
+            void resolveDockerEvent('close')
+            removeListeners()
+        })
+    } catch (err) {
+        removeListeners()
+        log.error(`Error listening to Docker events: \n${err}`)
+    }
+}
+
+export const resolveDockerEvent = (_eventType: string, _event?: string) => {
+    // TODO: 这里可以根据事件类型和状态来处理不同的逻辑，例如更新数据库状态、发送通知等
+    // WARN: 注意使用 resolveJSON 来转换 JSON 类型
 }

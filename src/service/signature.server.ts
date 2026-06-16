@@ -1,4 +1,5 @@
 import { AppConfigs } from '@util/appConfig.util'
+import { logger } from '@util/logger.util'
 import { createHmac } from 'crypto'
 
 export interface SignaturePayloadShape {
@@ -37,6 +38,7 @@ class SignatureService {
             const expectedSignature = this.generateSignature(payload)
             return signature === expectedSignature && payload.expiredAt > Date.now()
         } catch (error) {
+            logger.error(`Error verifying signature: ${error}`)
             return false
         }
     }

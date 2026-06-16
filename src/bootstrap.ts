@@ -1,5 +1,6 @@
 import cors from '@fastify/cors'
 import { appRouter } from '@plugin/route/index.route'
+import { listenDockerEvents } from '@service/docker.service'
 import { StartupLoop } from '@service/loop.service'
 import { readConfig } from '@util/appConfig.util'
 import { logger } from '@util/logger.util'
@@ -28,6 +29,9 @@ export const bootstrap = async () => {
     app.register(appRouter)
 
     await app.listen({ port: config.worker.port, host: config.worker.host })
+
+    // 启动 Docker 事件监听
+    await listenDockerEvents()
 
     // 启动任务循环
     void StartupLoop()
